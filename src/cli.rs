@@ -23,8 +23,9 @@ pub fn xproxy_binary() -> Option<PathBuf> {
         PathBuf::from("/usr/local/bin/xproxy"),
     ];
     if let Some(home) = std::env::var_os("HOME") {
-        candidates.push(PathBuf::from(home).join(".local/bin/xproxy"));
-        candidates.push(PathBuf::from(home).join(".cargo/bin/xproxy"));
+        let home = PathBuf::from(home);
+        candidates.push(home.join(".local/bin/xproxy"));
+        candidates.push(home.join(".cargo/bin/xproxy"));
     }
     candidates.into_iter().find(|path| path.is_file())
 }
