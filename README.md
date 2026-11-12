@@ -7,13 +7,16 @@ A capsule in the menu bar with two menus behind it: **Network** and **Xproxy**.
    │ 12 ms ⏸ │   ← the capsule: latency, and a glyph when the gateway is paused
    └─────────┘
         │ click
-   ┌────────────────────────────┐
-   │ Network                  ▸ │   ping, loss, throughput, speed test, target
-   │ Xproxy                   ▸ │   serving, where, models, pause, copy, refresh
-   ├────────────────────────────┤
-   │ Quit Opus                  │
-   └────────────────────────────┘
+   ┌──────────────────────────────────┐
+   │ Network                        ▸ │   ping, loss, throughput, speed test
+   │ Xproxy                         ▸ │   serving, models, pause, copy, refresh
+   ├──────────────────────────────────┤
+   │ Quit Opus                        │
+   └──────────────────────────────────┘
 ```
+
+Opus *runs* the gateway; the bundled `xproxy` command line *configures* it.
+Two interfaces, one instance, one data folder.
 
 Opus owns nothing of its own: it is the composition of two crates.
 
@@ -101,15 +104,20 @@ not set up here.
 - **Copy Base URL**, **Copy Gateway Key** — what a client needs
 - **Refresh Tokens** — the check the engine does not schedule for itself
 
-Configuration is not here on purpose. Providers, accounts, routes and client
-keys belong to the command line:
+**Configure in Terminal…** opens a shell on the command line that configures
+the gateway. A menu cannot type, and configuring is typing — a channel id, a
+base URL, an API key:
 
 ```sh
-cd ../xproxy
-cargo run -p xproxy -- provider add --channel openai --name work --api-key sk-...
-cargo run -p xproxy -- models --refresh
-cargo run -p xproxy -- status
+xproxy provider add --channel openai --name work --api-key sk-...
+xproxy models --refresh
+xproxy status
 ```
+
+That `xproxy` is not a separate install: **the bundle carries it** beside the
+app, at `Contents/MacOS/xproxy`, and the installer symlinks it into the first
+writable bin directory (`/opt/homebrew/bin`, `/usr/local/bin`, or
+`~/.local/bin`). One download, two commands.
 
 ## How the two halves meet
 

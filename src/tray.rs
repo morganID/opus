@@ -50,6 +50,7 @@ pub struct TrayUi {
     xp_url: MenuItem,
     xp_key: MenuItem,
     xp_refresh: MenuItem,
+    xp_config: MenuItem,
 
     quit: MenuItem,
     last_title: RefCell<String>,
@@ -88,6 +89,10 @@ impl TrayUi {
         let xp_url = MenuItem::new("Copy Base URL", false, None);
         let xp_key = MenuItem::new("Copy Gateway Key", false, None);
         let xp_refresh = MenuItem::new("Refresh Tokens", false, None);
+        // A menu cannot type, and configuring the gateway is typing: providers,
+        // accounts, routes, keys. The command line is the interface that can,
+        // so the item opens one — the copy that ships inside this bundle.
+        let xp_config = MenuItem::new("Configure in Terminal…", true, None);
 
         let gateway_menu = Submenu::new("Xproxy", true);
         gateway_menu
@@ -100,6 +105,7 @@ impl TrayUi {
                 &xp_key,
                 &PredefinedMenuItem::separator(),
                 &xp_refresh,
+                &xp_config,
             ])
             .map_err(|error| error.to_string())?;
 
@@ -137,6 +143,7 @@ impl TrayUi {
             xp_url,
             xp_key,
             xp_refresh,
+            xp_config,
             quit,
             last_title: RefCell::new(String::new()),
         })
@@ -255,6 +262,8 @@ impl TrayUi {
             gateway.copy(Copy::Key);
         } else if same(&self.xp_refresh) {
             gateway.refresh_tokens();
+        } else if same(&self.xp_config) {
+            crate::cli::open_terminal();
         }
         false
     }

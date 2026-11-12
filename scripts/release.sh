@@ -17,8 +17,16 @@ TAG=${1:-v$VERSION}
 ARCH=$(uname -m)
 TARGET=${CARGO_TARGET_DIR:-$ROOT/target}
 
+XPROXY_DIR=${XPROXY_DIR:-$ROOT/../xproxy}
+
 echo "→ building release for $ARCH"
 cargo build --release
+
+# The bundle carries the CLI as well as the app. Without it, an installed Opus
+# can show the gateway and pause it, but cannot add a provider — that needs
+# typing, and the menu is not where typing happens.
+echo "→ building the CLI from $XPROXY_DIR"
+( cd "$XPROXY_DIR" && cargo build --release -p xproxy --target-dir "$TARGET" )
 
 echo "→ assembling the bundle"
 STAGE=$(mktemp -d)
@@ -26,6 +34,7 @@ trap 'rm -rf "$STAGE"' EXIT
 APP="$STAGE/Opus.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$TARGET/release/opus" "$APP/Contents/MacOS/opus"
+cp "$TARGET/release/xproxy" "$APP/Contents/MacOS/xproxy"
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

@@ -5,6 +5,7 @@
 //! monitor runs on its own thread (pingbar's), the gateway on a tokio runtime,
 //! and this thread only draws.
 
+mod cli;
 mod gateway;
 mod tray;
 mod util;
