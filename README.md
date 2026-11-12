@@ -22,16 +22,49 @@ Opus owns nothing of its own: it is the composition of two crates.
 | Network | [`pingbar`](../pingbar) (MIT) | ICMP monitor, throughput test, and the capsule that paints the status item |
 | Xproxy | [`xproxy`](../xproxy) (AGPL) | the GPROXY gateway engine, its assembly, and the management operations |
 
-## Running it
+## Install
 
 ```sh
-cargo run
+./scripts/install.sh          # build, bundle, install into ~/Applications
+./scripts/install.sh --login  # …and start it at login
+```
+
+That produces a real `Opus.app`: the binary in `Contents/MacOS`, an
+`Info.plist` with `LSUIElement` (no Dock tile, no application menu) and an
+ad-hoc signature. Then:
+
+```sh
+open ~/Applications/Opus.app
 ```
 
 The icon appears immediately showing `…`; latency arrives on the first probe
 and the gateway is ready a few seconds later (keychain, SQLite schema, socket).
 Nothing needs configuring: the gateway starts with whatever accounts the
 instance already has.
+
+`DEST=/Applications ./scripts/install.sh` installs for every user instead.
+`PROFILE=debug ./scripts/install.sh` skips the optimiser while iterating, and
+`CARGO_TARGET_DIR` is honoured so a shared build directory is not compiled
+twice.
+
+Do not `cargo install` this one: it would put a bare binary in `~/.cargo/bin`
+with no bundle, no `LSUIElement`, and no login item.
+
+## Update
+
+```sh
+./scripts/install.sh          # rebuild and replace the bundle
+```
+
+There is no updater and nothing to download: Opus is built from this checkout
+plus its two siblings, so updating is rebuilding. `scripts/uninstall.sh` removes
+the bundle and the login item and leaves `~/Library/Application Support/dev.xproxy`
+alone.
+
+One thing every update does: **macOS asks for keychain access once more.**
+The signature is ad-hoc, so each build has a new hash and the previous grant no
+longer applies. A Developer ID would fix it; that needs a paid account and is
+not set up here.
 
 ## What each menu does
 
