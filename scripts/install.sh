@@ -1,52 +1,72 @@
 #!/bin/sh
-# Build Opus, wrap it in an application bundle, and put it where applications go.
+# Install Opus from GitHub. No compiler, no clone.
 #
-# A menu bar extra does not have to be a bundle — a bare binary runs fine — but
-# a bundle is what makes it a *thing*: an icon in ~/Applications, a login item,
-# a name in the notification settings, and a Dock-less launch that survives a
-# reboot. The three lines that matter are LSUIElement (no Dock tile), the binary
-# inside Contents/MacOS, and an ad-hoc signature so macOS stops treating it as
-# an unknown process every time it starts.
+#   curl -fsSL https://raw.githubusercontent.com/morganID/opus/main/scripts/install.sh | sh
+#   curl -fsSL ... | sh -s -- --login     # also start it at login
 #
-#   ./scripts/install.sh              # build, bundle, install
-#   ./scripts/install.sh --login      # also start it at login
-#   DEST=/Applications ./scripts/install.sh
-#   PROFILE=debug ./scripts/install.sh   # skip the optimiser while iterating
-#
-# `CARGO_TARGET_DIR` is honoured, so a shared build directory (the engine's,
-# for instance) is reused instead of compiled twice.
+# Downloads the latest release's bundle, drops it in ~/Applications, signs it
+# ad-hoc and gets out of the way. `--from-source` builds instead, which needs
+# Rust and two sibling checkouts; that path is for developing Opus, not for
+# using it.
 set -eu
 
-ROOT=$(cd "$(dirname "$0")/.." && pwd)
+REPO=${OPUS_REPO:-morganID/opus}
 DEST=${DEST:-$HOME/Applications}
 APP="$DEST/Opus.app"
 LOGIN=0
+SOURCE=0
 for arg in "$@"; do
     case "$arg" in
         --login) LOGIN=1 ;;
+        --from-source) SOURCE=1 ;;
+        -h|--help)
+            sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
+            exit 0 ;;
         *) echo "unknown argument: $arg" >&2; exit 2 ;;
     esac
 done
 
-PROFILE=${PROFILE:-release}
-case "$PROFILE" in
-    release) FLAGS="--release" ;;
-    debug)   FLAGS="" ;;
-    *)       FLAGS="--profile $PROFILE" ;;
-esac
-TARGET=${CARGO_TARGET_DIR:-$ROOT/target}
+if [ "$SOURCE" = 1 ]; then
+    ROOT=$(cd "$(dirname "$0")/.." && pwd)
+    PROFILE=${PROFILE:-release}
+    case "$PROFILE" in
+        release) FLAGS="--release" ;;
+        debug)   FLAGS="" ;;
+        *)       FLAGS="--profile $PROFILE" ;;
+    esac
+    TARGET=${CARGO_TARGET_DIR:-$ROOT/target}
+    echo "→ building ($PROFILE)"
+    ( cd "$ROOT" && cargo build $FLAGS )
+    STAGE="$TARGET/$PROFILE/opus"
+else
+    echo "→ looking up the latest release of $REPO"
+    URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
+        | sed -n 's/.*"browser_download_url": "\([^"]*Opus\.app\.tar\.gz\)".*/\1/p' | head -1)
+    if [ -z "$URL" ]; then
+        echo "no release found for $REPO" >&2
+        echo "build it yourself with: $0 --from-source" >&2
+        exit 1
+    fi
 
-echo "→ building ($PROFILE; the first build compiles the engine, so give it minutes)"
-cd "$ROOT"
-cargo build $FLAGS
+    TMP=$(mktemp -d)
+    trap 'rm -rf "$TMP"' EXIT
+    echo "→ downloading $(basename "$URL")"
+    curl -fsSL "$URL" -o "$TMP/Opus.app.tar.gz"
+    tar -xzf "$TMP/Opus.app.tar.gz" -C "$TMP"
+    STAGE="$TMP/Opus.app"
+fi
 
-echo "→ assembling $APP"
+echo "→ installing into $APP"
+# Quit a running copy first: replacing a bundle under a live process leaves it
+# running the old binary until the next launch.
+pkill -f "Opus.app/Contents/MacOS/opus" 2>/dev/null || true
+sleep 1
+mkdir -p "$DEST"
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$TARGET/$PROFILE/opus" "$APP/Contents/MacOS/opus"
-
-VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' "$ROOT/Cargo.toml" | head -1)
-cat > "$APP/Contents/Info.plist" <<PLIST
+if [ "$SOURCE" = 1 ]; then
+    mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+    cp "$STAGE" "$APP/Contents/MacOS/opus"
+    cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -56,26 +76,25 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleIdentifier</key>        <string>dev.xproxy.opus</string>
     <key>CFBundleExecutable</key>        <string>opus</string>
     <key>CFBundlePackageType</key>       <string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>${VERSION:-0.1.0}</string>
-    <key>CFBundleVersion</key>           <string>${VERSION:-0.1.0}</string>
+    <key>CFBundleShortVersionString</key><string>0.1.0</string>
+    <key>CFBundleVersion</key>           <string>0.1.0</string>
     <key>LSMinimumSystemVersion</key>    <string>12.0</string>
-    <!-- A menu bar extra: no Dock tile, no application menu. -->
     <key>LSUIElement</key>               <true/>
     <key>NSHighResolutionCapable</key>   <true/>
 </dict>
 </plist>
 PLIST
+else
+    cp -R "$STAGE" "$APP"
+fi
 
-echo "→ signing (ad-hoc)"
-# No Developer ID here, so the signature is ad-hoc: enough for the keychain to
-# remember the app between launches, but every rebuild changes the hash and
-# macOS asks once more. A real identity would stop that.
+# Ad-hoc: enough for the system to treat the bundle as one application. A real
+# Developer ID would also survive an update without a fresh keychain prompt.
 codesign --force --sign - --timestamp=none "$APP" >/dev/null 2>&1 || \
     echo "  (codesign failed; the app still runs, unsigned)"
 
 if [ "$LOGIN" = 1 ]; then
     AGENT="$HOME/Library/LaunchAgents/dev.xproxy.opus.plist"
-    echo "→ starting at login ($AGENT)"
     mkdir -p "$HOME/Library/LaunchAgents"
     cat > "$AGENT" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -95,4 +114,4 @@ echo
 echo "installed  $APP"
 echo "run it     open \"$APP\""
 [ "$LOGIN" = 1 ] && echo "at login   yes"
-echo "update     git pull && ./scripts/install.sh"
+echo "update     re-run this script"

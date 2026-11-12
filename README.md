@@ -25,41 +25,59 @@ Opus owns nothing of its own: it is the composition of two crates.
 ## Install
 
 ```sh
-./scripts/install.sh          # build, bundle, install into ~/Applications
-./scripts/install.sh --login  # …and start it at login
+curl -fsSL https://raw.githubusercontent.com/morganID/opus/main/scripts/install.sh | sh
 ```
 
-That produces a real `Opus.app`: the binary in `Contents/MacOS`, an
-`Info.plist` with `LSUIElement` (no Dock tile, no application menu) and an
-ad-hoc signature. Then:
+No clone, no compiler, no Rust. The script reads the latest release, downloads
+`Opus.app.tar.gz`, drops it in `~/Applications`, signs it ad-hoc, and stops. Add
+`--login` to start it at login:
 
 ```sh
-open ~/Applications/Opus.app
+curl -fsSL https://raw.githubusercontent.com/morganID/opus/main/scripts/install.sh | sh -s -- --login
 ```
 
-The icon appears immediately showing `…`; latency arrives on the first probe
-and the gateway is ready a few seconds later (keychain, SQLite schema, socket).
-Nothing needs configuring: the gateway starts with whatever accounts the
-instance already has.
+Then `open ~/Applications/Opus.app`. The icon appears immediately showing `…`;
+latency arrives on the first probe, and the gateway is ready a few seconds later
+(keychain, SQLite schema, socket). Nothing needs configuring — it starts with
+whatever accounts the instance already has.
 
-`DEST=/Applications ./scripts/install.sh` installs for every user instead.
-`PROFILE=debug ./scripts/install.sh` skips the optimiser while iterating, and
-`CARGO_TARGET_DIR` is honoured so a shared build directory is not compiled
-twice.
+`DEST=/Applications` installs for every user.
 
-Do not `cargo install` this one: it would put a bare binary in `~/.cargo/bin`
-with no bundle, no `LSUIElement`, and no login item.
+### From source
+
+Only if you are working on Opus. It needs Rust and the two sibling checkouts
+(`../pingbar`, `../xproxy`), because both halves are path dependencies:
+
+```sh
+git clone https://github.com/morganID/opus && cd opus
+git clone https://github.com/morganID/xproxy ../xproxy   # and its engine:
+../xproxy/scripts/fetch-core.sh
+./scripts/install.sh --from-source
+```
 
 ## Update
 
+Re-run the same line:
+
 ```sh
-./scripts/install.sh          # rebuild and replace the bundle
+curl -fsSL https://raw.githubusercontent.com/morganID/opus/main/scripts/install.sh | sh
 ```
 
-There is no updater and nothing to download: Opus is built from this checkout
-plus its two siblings, so updating is rebuilding. `scripts/uninstall.sh` removes
-the bundle and the login item and leaves `~/Library/Application Support/dev.xproxy`
-alone.
+It replaces the bundle in place, so the icon keeps its position and the data
+folder is untouched. There is no auto-updater: an update is a download you ask
+for, not a background process you did not.
+
+`scripts/uninstall.sh` removes the bundle and the login item and leaves
+`~/Library/Application Support/dev.xproxy` alone.
+
+### Cutting a release
+
+```sh
+./scripts/release.sh            # tags v<version>, builds, publishes the asset
+```
+
+The asset is built for the machine that ran it (`uname -m`); an Intel Mac needs
+its own release, or `--from-source`.
 
 One thing every update does: **macOS asks for keychain access once more.**
 The signature is ad-hoc, so each build has a new hash and the previous grant no
