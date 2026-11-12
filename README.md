@@ -114,10 +114,18 @@ xproxy models --refresh
 xproxy status
 ```
 
-That `xproxy` is not a separate install: **the bundle carries it** beside the
-app, at `Contents/MacOS/xproxy`, and the installer symlinks it into the first
-writable bin directory (`/opt/homebrew/bin`, `/usr/local/bin`, or
-`~/.local/bin`). One download, two commands.
+That command line is **its own product**, installed separately:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/morganID/xproxy/main/scripts/install.sh | sh
+```
+
+Opus does not carry it. The gateway has its own release, its own version and
+its own lifecycle; a menu bar app that shipped a second copy would be a second
+copy to keep in step. Opus looks for `xproxy` on `PATH`
+(`/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`, `~/.cargo/bin`), and if
+it is missing the menu says so instead of failing quietly. `OPUS_XPROXY` points
+it at a specific binary, which is what a development build uses.
 
 ## How the two halves meet
 

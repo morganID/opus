@@ -35,12 +35,9 @@ if [ "$SOURCE" = 1 ]; then
         *)       FLAGS="--profile $PROFILE" ;;
     esac
     TARGET=${CARGO_TARGET_DIR:-$ROOT/target}
-    XPROXY_DIR=${XPROXY_DIR:-$ROOT/../xproxy}
     echo "→ building ($PROFILE)"
     ( cd "$ROOT" && cargo build $FLAGS )
-    ( cd "$XPROXY_DIR" && cargo build $FLAGS -p xproxy --target-dir "$TARGET" )
     STAGE="$TARGET/$PROFILE/opus"
-    STAGE_CLI="$TARGET/$PROFILE/xproxy"
 else
     echo "→ looking up the latest release of $REPO"
     URL=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
@@ -69,7 +66,6 @@ rm -rf "$APP"
 if [ "$SOURCE" = 1 ]; then
     mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
     cp "$STAGE" "$APP/Contents/MacOS/opus"
-    cp "$STAGE_CLI" "$APP/Contents/MacOS/xproxy"
     cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -114,18 +110,10 @@ if [ "$LOGIN" = 1 ]; then
 PLIST
 fi
 
-# The CLI lives in the bundle; a symlink is what makes it reachable from a
-# shell. First writable directory wins, so Homebrew users get it on PATH
-# without editing anything.
-CLI="$APP/Contents/MacOS/xproxy"
-if [ -x "$CLI" ]; then
-    for dir in /opt/homebrew/bin /usr/local/bin "$HOME/.local/bin"; do
-        if [ -d "$dir" ] && [ -w "$dir" ]; then
-            ln -sf "$CLI" "$dir/xproxy"
-            echo "cli        $dir/xproxy"
-            break
-        fi
-    done
+if ! command -v xproxy >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/xproxy" ]; then
+    echo "note       xproxy is not installed; Opus will show the gateway but not"
+    echo "           be able to configure it. Install it with:"
+    echo "           curl -fsSL https://raw.githubusercontent.com/morganID/xproxy/main/scripts/install.sh | sh"
 fi
 
 echo

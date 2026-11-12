@@ -8,26 +8,42 @@
 
 use std::path::PathBuf;
 
-/// The `xproxy` binary that belongs to this installation.
+/// The `xproxy` binary, wherever it was installed.
 ///
-/// Sibling of the running executable, which is `Contents/MacOS/opus` inside a
-/// bundle. Falls back to `xproxy` on `PATH` for a `cargo run` from source.
-pub fn xproxy_binary() -> PathBuf {
-    if let Ok(current) = std::env::current_exe()
-        && let Some(dir) = current.parent()
-    {
-        let sibling = dir.join("xproxy");
-        if sibling.is_file() {
-            return sibling;
-        }
+/// Opus does not carry it: the gateway is its own product with its own release
+/// and its own installer, and a menu bar app that quietly shipped a second
+/// copy would be a second copy to keep in step. `OPUS_XPROXY` overrides the
+/// search, which is what a development build uses.
+pub fn xproxy_binary() -> Option<PathBuf> {
+    if let Some(path) = std::env::var_os("OPUS_XPROXY") {
+        return Some(PathBuf::from(path));
     }
-    PathBuf::from("xproxy")
+    let mut candidates = vec![
+        PathBuf::from("/opt/homebrew/bin/xproxy"),
+        PathBuf::from("/usr/local/bin/xproxy"),
+    ];
+    if let Some(home) = std::env::var_os("HOME") {
+        candidates.push(PathBuf::from(home).join(".local/bin/xproxy"));
+        candidates.push(PathBuf::from(home).join(".cargo/bin/xproxy"));
+    }
+    candidates.into_iter().find(|path| path.is_file())
 }
 
 /// Open Terminal on the CLI, showing where things stand.
+///
+/// With no `xproxy` installed there is nothing to open, so the window says so
+/// and gives the line that fixes it rather than failing silently.
 pub fn open_terminal() {
-    let binary = xproxy_binary();
-    let line = format!("'{}' status", binary.display());
+    let line = match xproxy_binary() {
+        Some(binary) => format!("'{}' status", binary.display()),
+        None => concat!(
+            "echo 'xproxy is not installed. Install it with:';",
+            "echo;",
+            "echo '  curl -fsSL https://raw.githubusercontent.com/morganID/xproxy/main/scripts/install.sh | sh';",
+            "echo"
+        )
+        .to_owned(),
+    };
     let script = format!(
         "tell application \"Terminal\"\ndo script \"{}\"\nactivate\nend tell",
         line.replace('\\', "\\\\").replace('"', "\\\"")
