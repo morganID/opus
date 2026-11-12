@@ -1,0 +1,40 @@
+[package]
+name = "opus"
+version = "0.1.0"
+edition = "2024"
+description = "A menu bar capsule for the network and the gateway behind it"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/morganID/opus"
+
+[[bin]]
+name = "opus"
+path = "src/main.rs"
+
+[dependencies]
+# The network half. Its `menubar` feature is what exposes the capsule: the pill
+# behind the status item, drawn once and refreshed with the title.
+pingbar = { path = "../pingbar", features = ["menubar"] }
+# The gateway half. This is the whole engine, assembled — `Gateway::local()`
+# starts it, and the menu asks it for status and control.
+xproxy = { path = "../xproxy/crates/xproxy" }
+
+tao = "0.37"
+tray-icon = "0.26"
+tokio = { version = "1", features = ["rt-multi-thread", "time", "sync"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+serde_json = "1"
+
+# `[patch]` is workspace-local: the engine's patches do not reach a workspace
+# that depends on it by path, and without these the build fails with "no method
+# named `execute_batch`" inside gproxy-seaorm. Copied from xproxy's manifest,
+# which copies them from gproxy's; they must move together.
+[patch.crates-io]
+glib = { path = "../xproxy/gproxy-ref/vendor/glib" }
+sqlx = { git = "https://github.com/LeenHawk/sqlx", rev = "278e61a175c7e52dbfcedd94d332922f58ccf4e9" }
+sqlx-core = { git = "https://github.com/LeenHawk/sqlx", rev = "278e61a175c7e52dbfcedd94d332922f58ccf4e9" }
+sqlx-macros = { git = "https://github.com/LeenHawk/sqlx", rev = "278e61a175c7e52dbfcedd94d332922f58ccf4e9" }
+sqlx-macros-core = { git = "https://github.com/LeenHawk/sqlx", rev = "278e61a175c7e52dbfcedd94d332922f58ccf4e9" }
+sqlx-mysql = { git = "https://github.com/LeenHawk/sqlx", rev = "278e61a175c7e52dbfcedd94d332922f58ccf4e9" }
+sqlx-postgres = { git = "https://github.com/LeenHawk/sqlx", rev = "278e61a175c7e52dbfcedd94d332922f58ccf4e9" }
+sqlx-sqlite = { git = "https://github.com/LeenHawk/sqlx", rev = "278e61a175c7e52dbfcedd94d332922f58ccf4e9" }
